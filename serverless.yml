@@ -1,0 +1,74 @@
+# Welcome to Serverless!
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+
+service: twoFactorAuth
+# app and org for use with dashboard.serverless.com
+app: testApp
+org: testOrg
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  # role: arn:aws:iam::############:user/twoFactorAuth
+  # cfnRole: arn:aws:iam::############:user/twoFactorAuth
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}-2
+    SENDGRID_API_KEY: 0 # Add API Key
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - logs:PutSubscriptionFilter
+      Resource: 'arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}'
+
+# you can overwrite defaults here
+#  stage: dev
+#  region: us-east-1
+
+functions:
+  create:
+    handler: handler.create
+    events:
+      - http:
+          path: auth/create
+          method: post
+          cors:
+            origin: '*'
+            allowCredentials: true
+  verify:
+    handler: handler.verify
+    events:
+      - http:
+          path: auth/verify
+          method: get
+          cors:
+            origin: '*'
+            allowCredentials: true
+resources:
+  Resources:
+    AuthDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
